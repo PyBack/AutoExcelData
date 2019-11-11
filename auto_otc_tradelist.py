@@ -252,6 +252,12 @@ def make_report_credit_dls_data(df, file_name='report_credit_dls_trade.text'):
         online_exclusive = u""
         short_name_list = row[u"상품명_단축"].split(u' ')
         series_num = short_name_list[2][:-1]
+        maturity = short_name_list[3]
+        credit_sub_type = u' '
+        if short_name_list[2] in [u'콜러블스탭업', u'선순위']:
+            series_num = short_name_list[3][:-1]
+            credit_sub_type = short_name_list[2]
+            maturity = short_name_list[4]
 
         product_name = u"삼성증권 제" + series_num + u"회 기타파생결합증권"
         product_type = u"DLS"
@@ -262,7 +268,7 @@ def make_report_credit_dls_data(df, file_name='report_credit_dls_trade.text'):
         trade_amount = row[u"금액(억"].astype(float)
         trade_margin = row[u"마진(bp)"].astype(float)
         office_name = row[u"지점"]
-        product_condition = short_name_list[0] + u" 신용연계 만기" + short_name_list[3] + u", 연" + u"%.2f%%" % (row[u"금리/쿠폰"].astype(float) * 100)
+        product_condition = short_name_list[0] + u" 신용연계 " + credit_sub_type + u" 만기" + maturity + u", 연" + u"%.2f%%" % (row[u"금리/쿠폰"].astype(float) * 100)
         product_condition = product_condition + u"*(이자기간/365)"
         sales_team = u"상품개발"
         krs_code = u""
