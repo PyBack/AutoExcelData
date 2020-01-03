@@ -82,20 +82,32 @@ def categorize_underlying_single_type(underlying_asset_single_name):
     underlying_type = u""
     if underlying_asset_single_name in [u"S&P500", u"EUROSTOXX50", u"HSCEI", u"KOSPI200", u"NIKKEI225", u"DAX"]:
         underlying_type = u"주가지수"
-    elif underlying_asset_single_name in [u"WTI", u"Brent"]:
+    elif underlying_asset_single_name in [u"WTI 선물", u"브렌트유 선물"]:
         underlying_type = u"Commodity"
     elif underlying_asset_single_name in [u"USDKRW"]:
         underlying_type = u"F/X"
-    elif underlying_asset_single_name in [u"삼성전자", u"한국전력"]:
+    elif underlying_asset_single_name in [u"삼성전자", u"한국전력", u"하이닉스"]:
         underlying_type = u"국내종목"
 
     return underlying_type
 
 
-def make_underlying_multi_type(underlying_num, underlying_type1, underlying_type2, underlying_type3):
-    for i in xrange(underlying_num):
-        if i == 0:
-            underlying_type1
+def categorize_underlying_asset_type(underlying_single_type_list):
+    test_type = '/'.join(underlying_single_type_list)
+    if test_type == u"주가지수/주가지수/주가지수":
+        return u"지수형", u"주가지수"
+    elif test_type == u"주가지수/주가지수":
+        return u"지수형", u"주가지수"
+    elif test_type == u"주가지수":
+        return u"지수형", u"주가지수"
+    elif test_type == u"국내종목":
+        return u"종목형", u"국내종목"
+    elif test_type == u"F/X":
+        return u"기타", u"F/X"
+    elif u"Commodity" in underlying_single_type_list and u"주가지수" in underlying_single_type_list:
+        return u"혼합형", u"Commodity/주가지수"
+    else:
+        return u"", u""
     pass
 
 
@@ -148,21 +160,20 @@ def make_report_equity_data(df, file_name='report_els_trade.text'):
             if row[u"기초자산" + unicode(i+1)] == u"NKY225":
                 row[u"기초자산" + unicode(i + 1)] = u"NIKKEI25"
 
+        underlying_single_type_list = list()
+
         if row[u"기초자산3"] is not None:
-            row[u"기초자산1"] = row[u"기초자산1"].replace(u"선물", "").strip()
-            row[u"기초자산2"] = row[u"기초자산2"].replace(u"선물", "").strip()
-            row[u"기초자산3"] = row[u"기초자산3"].replace(u"선물", "").strip()
             underlying_asset_name = row[u"기초자산1"] + u"/" + row[u"기초자산2"] + u"/" + row[u"기초자산3"]
-            print(categorize_underlying_single_type(row[u"기초자산1"]), categorize_underlying_single_type(row[u"기초자산2"]), categorize_underlying_single_type(row[u"기초자산3"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산1"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산2"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산3"]))
         elif row[u"기초자산3"] is not None and row[u"기초자산2"] is not None:
-            row[u"기초자산1"] = row[u"기초자산1"].replace(u"선물", "").strip()
-            row[u"기초자산2"] = row[u"기초자산2"].replace(u"선물", "").strip()
             underlying_asset_name = row[u"기초자산1"] + u"/" + row[u"기초자산2"]
-            print(categorize_underlying_single_type(row[u"기초자산1"]), categorize_underlying_single_type(row[u"기초자산2"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산1"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산2"]))
         else:
-            row[u"기초자산1"] = row[u"기초자산1"].replace(u"선물", "").strip()
             underlying_asset_name = row[u"기초자산1"]
-            print(categorize_underlying_single_type(row[u"기초자산1"]))
+            underlying_single_type_list.append(categorize_underlying_single_type(row[u"기초자산1"]))
         underlying_asset_name = underlying_asset_name.strip()
 
         if row[u"온라인"] == 1:
@@ -212,6 +223,10 @@ def make_report_equity_data(df, file_name='report_els_trade.text'):
                 msg = msg + u")"
                 product_condition = product_condition + msg
 
+            underlying_asset_type_list = categorize_underlying_asset_type(underlying_single_type_list)
+            asset_type1 = underlying_asset_type_list[0]
+            asset_type2 = underlying_asset_type_list[1]
+
             if product_structure_type == u"스텝다운": product_structure_type = u"SD"
             elif product_structure_type == u"수퍼스텝다운": product_structure_type = u"SD_NOKI"
             elif product_structure_type == u"멀티리자드": product_structure_type = u"SD_멀티리자드"
@@ -221,7 +236,7 @@ def make_report_equity_data(df, file_name='report_els_trade.text'):
             elif product_structure_type == u"양방향 낙아웃": product_structure_type = u"KO Call & Put"
             elif product_structure_type == u"NoKI원금보장": product_structure_type = u"하이파이브"
 
-            office_name = row[u'상품조건']
+            office_name = row[u'상대방추가정보']
             if office_name is None:
                 office_name = ""
             if office_name[-2:] == u"지점":
@@ -229,9 +244,9 @@ def make_report_equity_data(df, file_name='report_els_trade.text'):
 
             trade_margin = row[u"판매마진"].astype(float)
 
-            msg = "%s\t%s\t%s\t%s\t%s\t\t\t%s" % (product_name, product_type, u"당사발행", product_structure_type, principle_protect, underlying_asset_name)
+            msg = "%s\t%s\t%s\t%s\t%s\t\%s\t%s\t%s" % (product_name, product_type, u"당사발행", product_structure_type, principle_protect, asset_type1, asset_type2, underlying_asset_name)
             msg = msg + "\t%s\t%s\t%.4f\t%.2f" % (row[u"청약시작"], row[u"거래일"], row[u"최초명목금액"] / 100000000.0, trade_margin)
-            if office_name != "" and online_exclusive == u"":
+            if office_name != u"" and online_exclusive == u"":
                 msg = msg + "\t\t%s\t%s" % (office_name, sales_team)
             else:
                 msg = msg + "\t\t%s\t%s" % (online_exclusive, sales_team)
