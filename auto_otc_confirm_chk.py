@@ -140,6 +140,13 @@ def get_total_settle_list_from_hnet(window_hent=None, strdate=None):
         for date_digit in strdate:
             helper.press(date_digit)
 
+    sub_window.DoubleClickInput(coords=(90, 55))  # 종목종류
+    for i in xrange(5):
+        helper.press('down_arrow')
+    for i in xrange(3):
+        helper.press('up_arrow')
+    helper.press('enter')
+
     sub_window.DoubleClickInput(coords=(700, 55))  # 일괄조회
     helper.press('enter')
 
@@ -147,8 +154,11 @@ def get_total_settle_list_from_hnet(window_hent=None, strdate=None):
 
     sub_window.ClickInput(coords=(90, 120))     # 자료 복사
     helper.press('up_arrow')
+    time.sleep(1)
     helper.press('up_arrow')
+    time.sleep(1)
     helper.press('enter')
+    time.sleep(1)
 
     data = clipboard.paste()
     data = data.split("\r\n")
@@ -195,7 +205,7 @@ def get_target_product_data(excel_file_name='', strdate=''):
 
 
 def chk_in_isin_list(target_df, isin_code_list):
-
+    # 파생결합증권위험고지 30192 4.수익확정
     msg = '=== START chk_in_isin_list %d ===' % (len(target_df))
     logger.info(msg)
 
@@ -272,9 +282,13 @@ def chk_isin_in_salesteam(window_hnet, isin_code_list, df_data):
         if deal_code in list(df_data.index):
             if len(df_data.loc[deal_code][u'Sales부서']) > 0:
                 sales_team = df_data.loc[deal_code][u'Sales부서'][0]
+                settle_state = df_date.loc[deal_code][u'결재상태'][0]
+                sched_type = df_data.loc[deal_code][u'Sched.Type'][0]
             else:
                 sales_team = df_data.loc[deal_code][u'Sales부서']
-            msg = u"%s %s" % (isin_code, sales_team)
+                settle_state = df_data.loc[deal_code][u'결재상태']
+                sched_type = df_data.loc[deal_code][u'Sched.Type']
+            msg = u"%s %s %s %s" % (isin_code, sales_team, settle_state, sched_type)
             logger.info(msg)
         else:
             logger.info("%s not in list" % deal_code)
@@ -314,6 +328,8 @@ def main():
     if len(target_df) > 0:
         target_df = target_df[[u'종목코드', u'상품명', u'구분', u'수익구조', u'상환여부', u'상환예정일']]
         isin_code_list = chk_in_isin_list(target_df, isin_code_list)
+        if len(isin_code_list) == 0:
+            isin_code_list = list(target_df[u'종목코드'])
     print(isin_code_list)
     if len(isin_code_list) > 0:
         df_data = get_total_settle_list_from_hnet(window_hnet, args.date)
