@@ -181,7 +181,7 @@ def get_total_settle_list_from_hnet(window_hent=None, strdate=None):
     return df_data
 
 
-def get_target_product_data(excel_file_name='', strdate=''):
+def get_target_product_data(excel_file_name='', strdate='', term='상환'):
     if excel_file_name == '':
         excel_file_name = u'OTC상환리스트.xlsx'
     df = read_otc_termination_file(excel_file_name, strdate[:4] + "." + strdate[4:6])
@@ -198,9 +198,21 @@ def get_target_product_data(excel_file_name='', strdate=''):
         df_new = df_new.transpose()
         df = df_new.copy()
 
-    target_df = df[(df[u'구분'] != 'ELT') & (df[u'구분'] != 'DLT')]
-    target_df = target_df[(target_df[u'상환여부'] == u'만32805기상환') | (target_df[u'상환여부'] == u'조기상환')]
-    return target_df
+    if term == '상환':
+        target_df = df[(df[u'구분'] != 'ELT') & (df[u'구분'] != 'DLT')]
+        target_df = target_df[(target_df[u'상환여부'] == u'만32805기상환') | (target_df[u'상환여부'] == u'조기상환')]
+        return target_df
+    elif term == '상환_ALL':
+        target_df = df.copy()
+        target_df = target_df[(target_df[u'상환여부'] == u'만기상환') | (target_df[u'상환여부'] == u'조기상환')]
+        return target_df
+    elif term == '미상환':
+        target_df = df.copy()
+        target_df = target_df[(target_df[u'상환여부'] == u'미상환')]
+        return target_df
+    else:
+        df = pd.DataFrame()
+        return df
     pass
 
 
@@ -264,6 +276,17 @@ def chk_isin_in_salesteam(window_hnet, isin_code_list, df_data):
     msg = '== START of chk_isin_in_saleteam ==='
     logger.info(msg)
 
+    df_data_sub = df_data[(df_data[u'Sales부서'] == u'PB') & (df_data[u'결제상태'] == u'최종확정')]
+    df_data_early = df_data_sub[(df_data_sub[u'일자구분'] == 'OBS') & (df_data_sub[u'Sched.Type'] == u'의무중도')]
+    df_data_mat = df_data_sub[(df_data_sub[u'일자구분'] == 'MAT')]
+
+    df_data_sub = df_data[(df_data[u'Sales부서'] == u'PB') & (df_data[u'결제상태'] == u'미입력')]
+    df_data_delay = df_data_sub[(df_data_sub[u'일자구분'] == 'OBS') & (df_data_sub[u'Sched.Type'] == u'의무중도')]
+
+    logger.info('Sched Early Term-> %d' % len(df_data_early))
+    logger.info('Sched Delay Term-> %d' % len(df_data_delay))
+    logger.info('Sched MAT Term-> %d' % len(df_data_mat))
+
     for isin_code in isin_code_list:
         sub_windwow.ClickInput(coords=(90, 35))  # 종목코드
         clipboard.copy(isin_code[2:])
@@ -295,6 +318,26 @@ def chk_isin_in_salesteam(window_hnet, isin_code_list, df_data):
 
         msg = '=== END of chk_isin_in_saleteam ==='
         logger.info(msg)
+
+
+def chk_isin_in_schedul_list(window_hnet, target_df, df_data):
+    # 32802 파생결합증권상품정보
+    sub_window_title = u'32802 파생결합증권상품정보'
+    sub_window = window_hnet[sub_window_title]
+
+    if not sub_window.Exists():
+        window_hnet.ClickInput(coords=(70, 70))  # Editor (# of sub_window)
+        clipboard.copy('32802')
+        helper.paste()
+        helper.press('enter')
+        time.sleep(0.5)
+
+    sub_window.Maximize()
+    sub_window.Restore()
+    sub_window.SetFocus()
+
+    msg = '== START of chk_isin_in_schedule_list ==='
+    logger.info(msg)
 
 
 def main():
@@ -331,7 +374,7 @@ def main():
         if len(isin_code_list) == 0:
             isin_code_list = list(target_df[u'종목코드'])
     print(isin_code_list)
-    if len(isin_code_list) > 0:
+    if len(isin_code_list) >= 0:
         df_data = get_total_settle_list_from_hnet(window_hnet, args.date)
         chk_isin_in_salesteam(window_hnet, isin_code_list, df_data)
 
